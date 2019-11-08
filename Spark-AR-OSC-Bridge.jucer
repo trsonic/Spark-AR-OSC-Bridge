@@ -3,6 +3,8 @@
 <JUCERPROJECT id="VAOf74" name="Spark-AR-OSC-Bridge" projectType="guiapp" jucerVersion="5.4.5">
   <MAINGROUP id="qsTNsv" name="Spark-AR-OSC-Bridge">
     <GROUP id="{7625E1C4-2AD6-3335-4115-C3F4D8C0644A}" name="Source">
+      <FILE id="KLnG6c" name="AudioSetup.cpp" compile="1" resource="0" file="Source/AudioSetup.cpp"/>
+      <FILE id="JWDYl1" name="AudioSetup.h" compile="0" resource="0" file="Source/AudioSetup.h"/>
       <FILE id="LBww4R" name="MainComponent.h" compile="0" resource="0" file="Source/MainComponent.h"/>
       <FILE id="YQRPqk" name="MainComponent.cpp" compile="1" resource="0"
             file="Source/MainComponent.cpp"/>

@@ -1,21 +1,40 @@
 #include "MainComponent.h"
 
-MainComponent::MainComponent() : forwardFFT(fftOrder)
+MainComponent::MainComponent()	: forwardFFT(fftOrder)
+								, m_audioSetup(deviceManager)
 {
-    setSize (800, 600);
+    setSize (1000, 600);
 	setAudioChannels(2, 0);
 	startTimerHz(75);
 	sender.connect("127.0.0.1", 9000);
+
+	openAudioDeviceManager.setButtonText("Setup");
+	openAudioDeviceManager.addListener(this);
+	addAndMakeVisible(&openAudioDeviceManager);
+	// load settings file if available
+	String filePath = File::getSpecialLocation(File::SpecialLocationType::currentApplicationFile).getParentDirectory().getFullPathName();
+	audioSettingsFile = File(filePath + "/" + "SALTEAudioSettings.conf");
+
+	if (audioSettingsFile.existsAsFile())
+		loadSettings();
+
+	// GUI COLORS
+	LookAndFeel& lookAndFeel = getLookAndFeel();
+	lookAndFeel.setColour(TextButton::buttonColourId, Colour(0, 0, 0));
+
 }
 
 MainComponent::~MainComponent()
 {
+	saveSettings();
     shutdownAudio();
 }
 
 void MainComponent::prepareToPlay (int samplesPerBlockExpected, double sampleRate)
 {
-	DBG("SAMPLE RATE: " + String(sampleRate) + ", FFT Size: " + String(fftSize));
+	currentSampleRate = sampleRate;
+	currentBlockSize = samplesPerBlockExpected;
+	currentFFTSize = fftSize;
 }
 
 void MainComponent::getNextAudioBlock (const AudioSourceChannelInfo& bufferToFill)
@@ -117,9 +136,40 @@ void MainComponent::paint (Graphics& g)
 			g.drawText(String(fftDataCopyScaled[j], 4), startX + i * scaleX - 20, startY - fftDataCopy[j] * scaleY - 40, 40, 20, Justification::centred);
 		}
 	}
+
+	g.setColour(Colours::white);
+	g.drawText("Sample rate: " + String(currentSampleRate), 130, getHeight() - 70, 120, 20, Justification::centredLeft);
+	g.drawText("Buffer size: " + String(currentBlockSize), 130, getHeight() - 50, 120, 20, Justification::centredLeft);
+	g.drawText("FFT size: " + String(currentFFTSize), 130, getHeight() - 30, 120, 20, Justification::centredLeft);
 }
 
 void MainComponent::resized()
 {
+	m_audioSetup.setCentrePosition(getWidth() / 2, getHeight() / 2);
+	openAudioDeviceManager.setBounds(10, getHeight() - 35, 100, 25);
+}
 
+void MainComponent::buttonClicked(Button* buttonThatWasClicked)
+{
+	if (buttonThatWasClicked == &openAudioDeviceManager)
+	{
+		addAndMakeVisible(m_audioSetup);
+		m_audioSetup.m_shouldBeVisible = true;
+	}
+}
+
+void MainComponent::loadSettings()
+{
+	XmlDocument asxmldoc(audioSettingsFile);
+	std::unique_ptr<XmlElement> audioDeviceSettings(asxmldoc.getDocumentElement());
+	deviceManager.initialise(0, 2, audioDeviceSettings.get(), true);
+}
+
+void MainComponent::saveSettings()
+{
+	std::unique_ptr<XmlElement> audioDeviceSettings(deviceManager.createStateXml());
+	if (audioDeviceSettings.get())
+	{
+		audioDeviceSettings->writeTo(audioSettingsFile);
+	}
 }
