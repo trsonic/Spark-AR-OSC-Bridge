@@ -3,8 +3,8 @@
 MainComponent::MainComponent()	: forwardFFT(fftOrder)
 								, m_audioSetup(deviceManager)
 {
-    setSize (1700, 600);
-	setAudioChannels(2, 0);
+    setSize (1200, 600);
+	setAudioChannels(2, 2);
 	startTimerHz(75);
 	LISAsender.connect("10.10.54.75", 8880);
     REAPERsender.connect("10.10.54.75", 9990);
@@ -24,6 +24,10 @@ MainComponent::MainComponent()	: forwardFFT(fftOrder)
 	// GUI COLORS
 	LookAndFeel& lookAndFeel = getLookAndFeel();
 	lookAndFeel.setColour(TextButton::buttonColourId, Colour(0, 0, 0));
+    
+    memset(fftData, 0, (fftSize / 2) * sizeof(float));
+    memset(fftDataCopy, 0, (fftSize / 2) * sizeof(float));
+    memset(fftDataCopyScaled, 0, (fftSize / 2) * sizeof(float));
 
 }
 
@@ -44,7 +48,7 @@ void MainComponent::getNextAudioBlock (const AudioSourceChannelInfo& bufferToFil
 {
 	if (bufferToFill.buffer->getNumChannels() > 0)
 	{
-		auto* channelData = bufferToFill.buffer->getReadPointer(1, bufferToFill.startSample);
+		auto* channelData = bufferToFill.buffer->getReadPointer(0, bufferToFill.startSample);
 		for (auto i = 0; i < bufferToFill.numSamples; ++i)
 			pushNextSampleIntoFifo(channelData[i]);
 	}
@@ -186,8 +190,8 @@ void MainComponent::paint (Graphics& g)
 
 	int startX = 20;
 	int startY = 500;
-	int scaleX = 8;
-	int scaleY = 20;
+	int scaleX = 4;
+	int scaleY = 5;
 	int startBin = 256;
 	int zoomLength = fftSize / 2 - startBin;
 
