@@ -29,7 +29,8 @@ public:
 	};
 
 private:
-	OSCSender sender;
+	OSCSender LISAsender;
+    OSCSender REAPERsender;
 	dsp::FFT forwardFFT;
 	float fifo[fftSize];
 	float fftData[2 * fftSize];
@@ -37,6 +38,21 @@ private:
 	float fftDataCopyScaled[2 * fftSize];
 	int fifoIndex = 0;
 	bool nextFFTBlockReady = false;
+    float referenceLevel = 0;
+    
+    // Para Elisa (and Reaper)
+    float distance [5] = {0,0,0,0,0};
+    float azimuth [5] = {0,0,0,0,0};
+    float lastDistance [5] = {0,0,0,0,0};
+    float lastAzimuth [5] = {0,0,0,0,0};
+    
+    float control = 0.0;
+    float lastControl = 0.0;
+    
+    void sendOSCtoLISA();
+    void sendOSCtoReaper(int buttonNum);
+    
+    
 
 	int currentSampleRate, currentBlockSize, currentFFTSize;
 
