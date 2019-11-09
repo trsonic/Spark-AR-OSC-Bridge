@@ -36,7 +36,7 @@ void MainComponent::prepareToPlay (int samplesPerBlockExpected, double sampleRat
 	currentSampleRate = sampleRate;
 	currentBlockSize = samplesPerBlockExpected;
 	currentFFTSize = fftSize;
-    sendOSCtoReaper(2); // Sets the loop start and end points.
+    // sendOSCtoReaper(2); // Sets the loop start and end points.
 }
 
 void MainComponent::getNextAudioBlock (const AudioSourceChannelInfo& bufferToFill)
@@ -99,47 +99,52 @@ void MainComponent::releaseResources()
 // Main callback
 void MainComponent::timerCallback()
 {
-    int scalingBin = 396;
-    
-    forwardFFT.performFrequencyOnlyForwardTransform(fftData);
-    FloatVectorOperations::copy(fftDataCopy, fftData, fftSize / 2);
-    FloatVectorOperations::copy(fftDataCopyScaled, fftData, fftSize / 2);
-    FloatVectorOperations::multiply(fftDataCopyScaled, 1 / fftDataCopy[scalingBin], fftSize / 2);
-    
-    int binNums [12] = {0,1,2,3,4,5,6,7,8,9,10,11};
-    // 0 -> Button Controls
-    // 1-5 -> Distance
-    // 6-10 -> Azimuth
-    // 11 -> Reference level
-    
-    // Gets the reference level
-    referenceLevel = -jmap(fftDataCopyScaled[binNums[11]], (float)0, (float)1, (float)-180, (float)180);
-    
-    // Loops in the Distance and azimuth bins
-    for (int i = 1; i<=5; ++i) {
-        distance[i-1] = -jmap(fftDataCopyScaled[binNums[i]], (float)0, (float)1, (float)0, (float)referenceLevel);
-    }
-    for (int i = 6; i<=10; ++i) {
-        azimuth[i-6] = -jmap(fftDataCopyScaled[binNums[i]], (float)0, (float)1, (float)0, (float)referenceLevel);
-    }
-    sendOSCtoLISA();
-    
-    // Control messages
-    control = -jmap(fftDataCopyScaled[binNums[0]], (float)0, (float)1, (float)0, (float)referenceLevel);
-    
-    // Sends play message to Reaper
-    if (control > lastControl+referenceLevel/2)
-    {
-        lastControl = control;
-        sendOSCtoReaper(1);
-    }
-    
-    // Sends stop message to Reaper
-    if (control < lastControl-referenceLevel/2)
-    {
-        lastControl = control;
-        sendOSCtoReaper(0);
-    }
+	if (nextFFTBlockReady)
+	{
+		int scalingBin = 396;
+		forwardFFT.performFrequencyOnlyForwardTransform(fftData);
+		FloatVectorOperations::copy(fftDataCopy, fftData, fftSize / 2);
+		FloatVectorOperations::copy(fftDataCopyScaled, fftData, fftSize / 2);
+		FloatVectorOperations::multiply(fftDataCopyScaled, 1 / fftDataCopy[scalingBin], fftSize / 2);
+
+		int binNums[12] = { 0,1,2,3,4,5,6,7,8,9,10,11 };
+		// 0 -> Button Controls
+		// 1-5 -> Distance
+		// 6-10 -> Azimuth
+		// 11 -> Reference level
+
+		// Gets the reference level
+		referenceLevel = -jmap(fftDataCopyScaled[binNums[11]], (float)0, (float)1, (float)-180, (float)180);
+
+		// Loops in the Distance and azimuth bins
+		for (int i = 1; i <= 5; ++i) {
+			distance[i - 1] = -jmap(fftDataCopyScaled[binNums[i]], (float)0, (float)1, (float)0, (float)referenceLevel);
+		}
+		for (int i = 6; i <= 10; ++i) {
+			azimuth[i - 6] = -jmap(fftDataCopyScaled[binNums[i]], (float)0, (float)1, (float)0, (float)referenceLevel);
+		}
+		sendOSCtoLISA();
+
+		// Control messages
+		control = -jmap(fftDataCopyScaled[binNums[0]], (float)0, (float)1, (float)0, (float)referenceLevel);
+
+		// Sends play message to Reaper
+		if (control > lastControl + referenceLevel / 2)
+		{
+			lastControl = control;
+			sendOSCtoReaper(1);
+		}
+
+		// Sends stop message to Reaper
+		if (control < lastControl - referenceLevel / 2)
+		{
+			lastControl = control;
+			sendOSCtoReaper(0);
+		}
+
+		repaint();
+		nextFFTBlockReady = false;
+	}
 }
 
 
