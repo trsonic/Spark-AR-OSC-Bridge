@@ -3,11 +3,13 @@
 MainComponent::MainComponent()	: forwardFFT(fftOrder)
 								, m_audioSetup(deviceManager)
 {
-    setSize (1000, 600);
+    setSize (1700, 600);
 	setAudioChannels(2, 0);
 	startTimerHz(75);
 	LISAsender.connect("10.10.54.75", 8880);
     REAPERsender.connect("10.10.54.75", 9990);
+
+	sendOSCtoReaper(2); // Sets the loop start and end points.
 
 	openAudioDeviceManager.setButtonText("Setup");
 	openAudioDeviceManager.addListener(this);
@@ -36,7 +38,6 @@ void MainComponent::prepareToPlay (int samplesPerBlockExpected, double sampleRat
 	currentSampleRate = sampleRate;
 	currentBlockSize = samplesPerBlockExpected;
 	currentFFTSize = fftSize;
-    // sendOSCtoReaper(2); // Sets the loop start and end points.
 }
 
 void MainComponent::getNextAudioBlock (const AudioSourceChannelInfo& bufferToFill)
@@ -56,87 +57,44 @@ void MainComponent::releaseResources()
 
 }
 
-/*void MainComponent::timerCallback()
-{
-    if (nextFFTBlockReady)
-    {
-        int scalingBin = 396;
-        forwardFFT.performFrequencyOnlyForwardTransform(fftData);
-        FloatVectorOperations::copy(fftDataCopy, fftData, fftSize / 2);
-        FloatVectorOperations::copy(fftDataCopyScaled, fftData, fftSize / 2);
-        FloatVectorOperations::multiply(fftDataCopyScaled, 1 / fftDataCopy[scalingBin], fftSize / 2);
-
-        float RollOUT = -jmap(fftDataCopyScaled[316], (float)0, (float)1, (float)-180, (float)180);
-        float PitchOUT = -jmap(fftDataCopyScaled[305], (float)0, (float)1, (float)-180, (float)180);
-        float YawOUT = jmap(fftDataCopyScaled[310], (float)0, (float)1, (float)-180, (float)180);
-
-        if (fftDataCopy[scalingBin] > 5 && fftDataCopyScaled[391] > 0.5)
-        {
-            sender.send("/rendering/htrpy", RollOUT, PitchOUT, YawOUT);
-
-            // Map and send OSC
-            float RollOSC = (float)jmap(-RollOUT, (float)-180, (float)180, (float)0, (float)1);
-            float PitchOSC = (float)jmap(-PitchOUT, (float)-180, (float)180, (float)0, (float)1);
-            float YawOSC = (float)jmap(-YawOUT, (float)-180, (float)180, (float)0, (float)1);
-            sender.send("/roll/", (float)RollOSC);
-            sender.send("/pitch/", (float)PitchOSC);
-            sender.send("/yaw/", (float)YawOSC);
-        }
-
-        //sender.send("/levels/", (float)fftData[32], (float)fftData[40], (float)fftData[48],
-        //                        (float)fftData[56], (float)fftData[64], (float)fftData[72],
-        //                        (float)fftData[80], (float)fftData[88], (float)fftData[96],
-        //                        (float)fftData[104], (float)fftData[112], (float)fftData[120]);
-
-        repaint();
-        nextFFTBlockReady = false;
-    }
-    
-    sendOSCtoLISA();
-}*/
-
-
 // Main callback
 void MainComponent::timerCallback()
 {
 	if (nextFFTBlockReady)
 	{
-		int scalingBin = 396;
+		int scalingBin = 403;
 		forwardFFT.performFrequencyOnlyForwardTransform(fftData);
 		FloatVectorOperations::copy(fftDataCopy, fftData, fftSize / 2);
 		FloatVectorOperations::copy(fftDataCopyScaled, fftData, fftSize / 2);
 		FloatVectorOperations::multiply(fftDataCopyScaled, 1 / fftDataCopy[scalingBin], fftSize / 2);
 
-		int binNums[12] = { 0,1,2,3,4,5,6,7,8,9,10,11 };
+		int binNums[16] = {271, 280, 291, 296, 307, 312, 323, 328, 335, 344, 354, 361, 368, 379, 385, 393};
 		// 0 -> Button Controls
 		// 1-5 -> Distance
 		// 6-10 -> Azimuth
-		// 11 -> Reference level
-
-		// Gets the reference level
-		referenceLevel = -jmap(fftDataCopyScaled[binNums[11]], (float)0, (float)1, (float)-180, (float)180);
 
 		// Loops in the Distance and azimuth bins
 		for (int i = 1; i <= 5; ++i) {
-			distance[i - 1] = -jmap(fftDataCopyScaled[binNums[i]], (float)0, (float)1, (float)0, (float)referenceLevel);
+			distance[i - 1] = fftDataCopyScaled[binNums[i]];
 		}
+
 		for (int i = 6; i <= 10; ++i) {
-			azimuth[i - 6] = -jmap(fftDataCopyScaled[binNums[i]], (float)0, (float)1, (float)0, (float)referenceLevel);
+			azimuth[i - 6] = fftDataCopyScaled[binNums[i]];
 		}
 		sendOSCtoLISA();
 
 		// Control messages
-		control = -jmap(fftDataCopyScaled[binNums[0]], (float)0, (float)1, (float)0, (float)referenceLevel);
+		control = fftDataCopyScaled[binNums[0]];
 
 		// Sends play message to Reaper
-		if (control > lastControl + referenceLevel / 2)
+		if (control > lastControl + fftDataCopyScaled[scalingBin] / 2)
 		{
 			lastControl = control;
 			sendOSCtoReaper(1);
 		}
 
 		// Sends stop message to Reaper
-		if (control < lastControl - referenceLevel / 2)
+		if (control < lastControl + fftDataCopyScaled[scalingBin] / 2)
 		{
 			lastControl = control;
 			sendOSCtoReaper(0);
@@ -230,10 +188,10 @@ void MainComponent::paint (Graphics& g)
 	int startY = 500;
 	int scaleX = 8;
 	int scaleY = 20;
-	int startBin = 300;
-	int zoomLength = 228;
+	int startBin = 256;
+	int zoomLength = fftSize / 2 - startBin;
 
-	for (int i = 0; i < zoomLength / 2; ++i)
+	for (int i = 0; i < zoomLength; ++i)
 	{
 		g.setColour(Colours::orange);
 		int j = startBin + i;
