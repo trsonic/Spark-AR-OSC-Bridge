@@ -107,6 +107,11 @@ void MainComponent::timerCallback()
 				sendOSCtoReaper(0);
 				reaperStopped = true;
 			}
+			oscBeingSent = true;
+		}
+		else
+		{
+			oscBeingSent = false;
 		}
 
 		repaint();
@@ -223,6 +228,8 @@ void MainComponent::paint (Graphics& g)
 	g.drawText("Sample rate: " + String(currentSampleRate), 130, getHeight() - 70, 120, 20, Justification::centredLeft);
 	g.drawText("Buffer size: " + String(currentBlockSize), 130, getHeight() - 50, 120, 20, Justification::centredLeft);
 	g.drawText("FFT size: " + String(currentFFTSize), 130, getHeight() - 30, 120, 20, Justification::centredLeft);
+
+	if(oscBeingSent) g.drawText("Level OK", 280, getHeight() - 30, 120, 20, Justification::centredLeft);
 }
 
 void MainComponent::resized()

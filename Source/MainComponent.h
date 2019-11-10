@@ -49,6 +49,8 @@ private:
     float control = 0.0;
     float lastControl = 0.0;
 
+	bool oscBeingSent = false;
+
     void sendOSCtoLISA();
     void sendOSCtoReaper(int buttonNum);
 
