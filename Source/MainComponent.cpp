@@ -125,28 +125,18 @@ void MainComponent::sendOSCtoLISA()
 {
     int sources = 5; // Number of sources
 
-    for (int i = 1; i <= sources; ++i)
+    for (int i = 0; i < sources; ++i)
     {
-        // Defines the tresholds to send or not a message
-        //float upDistTresh = lastDistance[i]*1.05;
-        //float upAzTresh = lastDistance[i]*1.05;
-        //float downDistTresh = lastDistance[i]*0.95;
-        //float downAzTresh = lastDistance[i]*0.95;
-        
-        int channel = i*2 -1; // L-ISA Controller works in pairs (stereo tracks).
+        int channel = i*2 + 1; // L-ISA Controller works in pairs (stereo tracks).
         
         // Only sends OSC messages if the new value is bigger or smaller than the treshold.
-        // if (lastDistance[i] > upDistTresh || lastDistance[i] < downDistTresh)
 		if (true)
         {
-            // lastDistance[i] = distance[i];
             String address = "/ext/src/" + (String)channel + "/d";
             LISAsender.send(address, (float)distance[i]);
         }
-        /*if (lastAzimuth[i] > upAzTresh || lastAzimuth[i] < downAzTresh)*/
 		if (true)
         {
-            // lastAzimuth[i] = azimuth[i];
             String address = "/ext/src/" + (String)channel + "/p";
 			LISAsender.send(address, (float)azimuth[i]);
         }
