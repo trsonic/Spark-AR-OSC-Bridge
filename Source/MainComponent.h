@@ -48,10 +48,11 @@ private:
     
     float control = 0.0;
     float lastControl = 0.0;
-    
+
     void sendOSCtoLISA();
     void sendOSCtoReaper(int buttonNum);
-    
+
+	bool reaperStopped = true;
     
 
 	int currentSampleRate, currentBlockSize, currentFFTSize;

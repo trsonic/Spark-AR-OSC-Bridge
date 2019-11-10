@@ -1,14 +1,17 @@
 #include "MainComponent.h"
 
+using namespace std;
+
 MainComponent::MainComponent()	: forwardFFT(fftOrder)
 								, m_audioSetup(deviceManager)
 {
     setSize (1700, 600);
 	setAudioChannels(2, 0);
-	startTimerHz(75);
-	LISAsender.connect("10.10.54.75", 8880);
-    REAPERsender.connect("10.10.54.75", 9990);
+	startTimerHz(40);
+	LISAsender.connect("127.0.0.1", 8880);
+    REAPERsender.connect("127.0.0.1", 9990);
 
+	sendOSCtoReaper(0); // Stop
 	sendOSCtoReaper(2); // Sets the loop start and end points.
 
 	openAudioDeviceManager.setButtonText("Setup");
@@ -18,8 +21,8 @@ MainComponent::MainComponent()	: forwardFFT(fftOrder)
 	String filePath = File::getSpecialLocation(File::SpecialLocationType::currentApplicationFile).getParentDirectory().getFullPathName();
 	audioSettingsFile = File(filePath + "/" + "SALTEAudioSettings.conf");
 
-	if (audioSettingsFile.existsAsFile())
-		loadSettings();
+	//if (audioSettingsFile.existsAsFile())
+	//	loadSettings();
 
 	// GUI COLORS
 	LookAndFeel& lookAndFeel = getLookAndFeel();
@@ -62,42 +65,48 @@ void MainComponent::timerCallback()
 {
 	if (nextFFTBlockReady)
 	{
-		int scalingBin = 403;
+		int scalingBin = 400;
 		forwardFFT.performFrequencyOnlyForwardTransform(fftData);
 		FloatVectorOperations::copy(fftDataCopy, fftData, fftSize / 2);
 		FloatVectorOperations::copy(fftDataCopyScaled, fftData, fftSize / 2);
 		FloatVectorOperations::multiply(fftDataCopyScaled, 1 / fftDataCopy[scalingBin], fftSize / 2);
 
-		int binNums[16] = {271, 280, 291, 296, 307, 312, 323, 328, 335, 344, 354, 361, 368, 379, 385, 393};
-		// 0 -> Button Controls
-		// 1-5 -> Distance
-		// 6-10 -> Azimuth
+		int binNums[16] = {271, 283, 290, 296, 307, 311, 321, 328, 338, 346, 351, 361, 369, 378, 386, 394 };
+		// 0-4 -> Distance
+		// 5-9 -> Azimuth
+		// 10 -> Button Controls
 
-		// Loops in the Distance and azimuth bins
-		for (int i = 1; i <= 5; ++i) {
-			distance[i - 1] = fftDataCopyScaled[binNums[i]];
-		}
 
-		for (int i = 6; i <= 10; ++i) {
-			azimuth[i - 6] = fftDataCopyScaled[binNums[i]];
-		}
-		sendOSCtoLISA();
-
-		// Control messages
-		control = fftDataCopyScaled[binNums[0]];
-
-		// Sends play message to Reaper
-		if (control > lastControl + fftDataCopyScaled[scalingBin] / 2)
+		if (fftDataCopyScaled[394] > 0.995 && fftDataCopyScaled[394] < 1.005 && fftDataCopy[scalingBin] > 40)
 		{
-			lastControl = control;
-			sendOSCtoReaper(1);
-		}
+			// Loops in the Distance and azimuth bins
+			for (int i = 0; i < 5; ++i)
+			{
+				distance[i] = fftDataCopyScaled[binNums[i]];
 
-		// Sends stop message to Reaper
-		if (control < lastControl + fftDataCopyScaled[scalingBin] / 2)
-		{
-			lastControl = control;
-			sendOSCtoReaper(0);
+			}
+
+			for (int i = 5; i < 10; ++i)
+			{
+				azimuth[i - 5] = fftDataCopyScaled[binNums[i]];
+			}
+
+			sendOSCtoLISA();
+
+			// Control messages
+			control = fftDataCopyScaled[binNums[10]];
+
+			// Sends play message to Reaper
+			if (control > 0.5f && reaperStopped)
+			{
+				sendOSCtoReaper(1);
+				reaperStopped = false;
+			}
+			else if(control <= 0.5f && reaperStopped == false)
+			{
+				sendOSCtoReaper(0);
+				reaperStopped = true;
+			}
 		}
 
 		repaint();
@@ -110,29 +119,31 @@ void MainComponent::timerCallback()
 void MainComponent::sendOSCtoLISA()
 {
     int sources = 5; // Number of sources
-    
+
     for (int i = 1; i <= sources; ++i)
     {
         // Defines the tresholds to send or not a message
-        float upDistTresh = lastDistance[i]*1.05;
-        float upAzTresh = lastDistance[i]*1.05;
-        float downDistTresh = lastDistance[i]*0.95;
-        float downAzTresh = lastDistance[i]*0.95;
+        //float upDistTresh = lastDistance[i]*1.05;
+        //float upAzTresh = lastDistance[i]*1.05;
+        //float downDistTresh = lastDistance[i]*0.95;
+        //float downAzTresh = lastDistance[i]*0.95;
         
         int channel = i*2 -1; // L-ISA Controller works in pairs (stereo tracks).
         
         // Only sends OSC messages if the new value is bigger or smaller than the treshold.
-        if (lastDistance[i] > upDistTresh || lastDistance[i] < downDistTresh)
+        // if (lastDistance[i] > upDistTresh || lastDistance[i] < downDistTresh)
+		if (true)
         {
-            lastDistance[i] = distance[i];
+            // lastDistance[i] = distance[i];
             String address = "/ext/src/" + (String)channel + "/d";
             LISAsender.send(address, (float)distance[i]);
         }
-        if (lastAzimuth[i] > upAzTresh || lastAzimuth[i] < downAzTresh)
+        /*if (lastAzimuth[i] > upAzTresh || lastAzimuth[i] < downAzTresh)*/
+		if (true)
         {
-            lastAzimuth[i] = azimuth[i];
+            // lastAzimuth[i] = azimuth[i];
             String address = "/ext/src/" + (String)channel + "/p";
-            LISAsender.send("/ext/src/(k)/p", (float)azimuth[i]);
+			LISAsender.send(address, (float)azimuth[i]);
         }
     }
 }
@@ -149,9 +160,9 @@ void MainComponent::sendOSCtoReaper(int buttonNum)
             REAPERsender.send("/play", (float)1.0);
             break;
         case 2:
-            REAPERsender.send("/loop/start/time", (float)0.0);
-            REAPERsender.send("/loop/end/time", (float)10.0);
-            REAPERsender.send("/time", (float)0.0);
+            REAPERsender.send("/loop/start/time", (float)33.103);
+            REAPERsender.send("/loop/end/time", (float)77.241);
+            REAPERsender.send("/time", (float)33.103);
             break;
             
         default:
@@ -187,7 +198,7 @@ void MainComponent::paint (Graphics& g)
 	int startX = 20;
 	int startY = 500;
 	int scaleX = 8;
-	int scaleY = 20;
+	int scaleY = 6;
 	int startBin = 256;
 	int zoomLength = fftSize / 2 - startBin;
 
